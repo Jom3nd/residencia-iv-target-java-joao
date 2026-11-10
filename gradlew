@@ -199,6 +199,40 @@ if "$cygwin" || "$msys" ; then
 fi
 
 
+
+# Loop in case we encounter an error.
+REQUIRED_WRAPPER_JAR_CHECKSUM="3b8a25775a69158b5ad2b1d17a80a88dc7b40a352a73eb27d06c612a7ce68e98"
+for attempt in 1 2 3; do
+  if [ ! -e "$APP_HOME/gradle/wrapper/gradle-wrapper.jar" ]; then
+    if ! curl -s -S --retry 3 -L -o "$APP_HOME/gradle/wrapper/gradle-wrapper.jar" "https://raw.githubusercontent.com/gradle/gradle/dcc5ee0ec88270575344e6afd490f96d96f84ab3/gradle/wrapper/gradle-wrapper.jar"; then
+      rm -f "$APP_HOME/gradle/wrapper/gradle-wrapper.jar"
+      # Pause for a bit before looping in case the server throttled us.
+      sleep 5
+      continue
+    fi
+  else
+    # Verify checksum of existing wrapper JAR. 
+    # This prevents developers from running into incompatibility issues when using an outdated wrapper JAR after a Gradle upgrade.
+    # Use sha256sum or shasum, whichever is available.
+    if command -v sha256sum >/dev/null 2>&1; then
+      LOCAL_WRAPPER_JAR_CHECKSUM=$(sha256sum "$APP_HOME/gradle/wrapper/gradle-wrapper.jar" | awk '{print $1}')
+    elif command -v shasum >/dev/null 2>&1; then
+      LOCAL_WRAPPER_JAR_CHECKSUM=$(shasum -a 256 "$APP_HOME/gradle/wrapper/gradle-wrapper.jar" | awk '{print $1}')
+    else
+      # If no checksum tool is found, this verification is skipped .
+      warn "Cannot find sha256sum or shasum to verify wrapper JAR."
+      break
+    fi
+
+    # If the local checksum does not match the required checksum, delete the JAR to force re-download.
+    if [ "$LOCAL_WRAPPER_JAR_CHECKSUM" != "$REQUIRED_WRAPPER_JAR_CHECKSUM" ] ; then
+      rm -f "$APP_HOME/gradle/wrapper/gradle-wrapper.jar"
+    else
+      break
+    fi
+  fi
+done
+
 # Add default JVM options here. You can also use JAVA_OPTS and GRADLE_OPTS to pass JVM options to this script.
 DEFAULT_JVM_OPTS='"-Xmx64m" "-Xms64m"'
 

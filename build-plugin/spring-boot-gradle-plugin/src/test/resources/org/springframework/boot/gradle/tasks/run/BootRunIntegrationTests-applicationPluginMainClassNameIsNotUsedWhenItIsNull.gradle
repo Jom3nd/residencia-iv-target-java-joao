@@ -1,8 +1,0 @@
-/*
- * Copyright 2012-present the original author or authors.
- */
-
-plugins {
-	id 'application'
-	id 'org.springframework.boot' version '{version}'
-}
