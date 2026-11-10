@@ -1,0 +1,33 @@
+name: Selective tests
+
+on:
+  pull_request:
+  push:
+    branches: [main, master]
+
+permissions:
+  contents: read
+
+jobs:
+  selective:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository with history
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: Run mold-repo selective tests
+        uses: residencia-iv-test/mold-repo@main
+        with:
+          base: ${{ github.event.pull_request.base.sha }}
+          root: ${{ github.workspace }}
