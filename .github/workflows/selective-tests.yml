@@ -13,22 +13,32 @@ jobs:
   selective:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout repository with history
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
+      - name: Check out repository history
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          AUTH_HEADER="AUTHORIZATION: basic $(printf 'x-access-token:%s' "$GH_TOKEN" | base64 -w0)"
+          git init .
+          git remote add origin "https://github.com/${GITHUB_REPOSITORY}.git"
+          git -c http.extraheader="$AUTH_HEADER" fetch --no-tags origin "+refs/heads/*:refs/remotes/origin/*" "+refs/pull/*/merge:refs/remotes/pull/*/merge"
+          git checkout --detach "$GITHUB_SHA"
 
-      - name: Set up Java
-        uses: actions/setup-java@v4
-        with:
-          distribution: temurin
-          java-version: '17'
+      - name: Select Java 17
+        run: |
+          echo "JAVA_HOME=$JAVA_HOME_17_X64" >> "$GITHUB_ENV"
+          echo "$JAVA_HOME_17_X64/bin" >> "$GITHUB_PATH"
 
-      - name: Set up Gradle
-        uses: gradle/actions/setup-gradle@v4
-
-      - name: Run mold-repo selective tests
-        uses: residencia-iv-test/mold-repo@main
-        with:
-          base: ${{ github.event.pull_request.base.sha }}
-          root: ${{ github.workspace }}
+      - name: Run selective tests with mold-repo
+        env:
+          PR_BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          PUSH_BASE_SHA: ${{ github.event.before }}
+        run: |
+          git clone --depth 1 https://github.com/residencia-iv-test/mold-repo.git "$RUNNER_TEMP/mold-repo"
+          if [[ -n "$PR_BASE_SHA" ]]; then
+            BASE="$PR_BASE_SHA"
+          elif [[ -n "$PUSH_BASE_SHA" && ! "$PUSH_BASE_SHA" =~ ^0+$ ]]; then
+            BASE="$PUSH_BASE_SHA"
+          else
+            BASE="$(git rev-parse HEAD^)"
+          fi
+          bash "$RUNNER_TEMP/mold-repo/run.sh" --base "$BASE" --root "$GITHUB_WORKSPACE"
